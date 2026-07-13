@@ -67,14 +67,17 @@
   /* ---------- Weekday tabs (shared style) ---------- */
   .weekday-tabs{ display:flex; gap:4px; margin-bottom:18px; }
   .weekday-tab{
-    flex:1; padding:9px 2px; text-align:center;
+    flex:1; padding:9px 2px; text-align:center; position:relative;
     border:1.5px solid var(--grid); background:var(--paper);
     border-radius:6px; font-family:'JetBrains Mono',monospace; font-weight:700;
     font-size:0.78rem; color:var(--ink-soft); cursor:pointer;
   }
   .weekday-tab:hover{ border-color:var(--red); color:var(--red); }
   .weekday-tab.selected{ border-color:var(--red); color:var(--red); background:var(--red-dim); }
-  .weekday-tab.is-today::after{ content:"•"; display:block; color:var(--red); margin-top:1px; }
+  .weekday-tab.is-today::after{
+    content:""; position:absolute; bottom:4px; left:50%; transform:translateX(-50%);
+    width:4px; height:4px; border-radius:50%; background:var(--red);
+  }
 
   /* ---------- MAIN VIEW ---------- */
   .status-wrap{ display:flex; flex-direction:column; align-items:center; padding:6px 0 22px; }
