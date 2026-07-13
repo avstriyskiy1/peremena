@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Перемена — расписание звонков</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#C0392B">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAFAF7;
+    --card:#FFFFFF;
+    --ink:#1B2430;
+    --ink-soft:#5B6472;
+    --muted:#9AA1AB;
+    --red:#C0392B;
+    --red-dim:#C0392B1a;
+    --grid:#E7E9ED;
+    --green:#3F7D5C;
+    --radius:7px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size:26px 26px;
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding:28px 16px 60px;
+  }
+  .app{ width:100%; max-width:460px; }
+
+  .app-header{ margin-bottom:22px; padding-left:2px; display:flex; justify-content:space-between; align-items:flex-start; }
+  .app-header h1{
+    font-family:'PT Serif',serif; font-weight:700; font-size:2.35rem; margin:0;
+    letter-spacing:-0.01em; position:relative; display:inline-block;
+  }
+  .app-header h1::after{
+    content:""; position:absolute; left:2px; right:2px; bottom:2px; height:9px;
+    background:var(--red-dim); z-index:-1; transform:skewX(-6deg);
+  }
+  .app-header .tagline{ margin:6px 0 0; color:var(--ink-soft); font-size:0.92rem; }
+
+  .settings-btn{
+    width:38px; height:38px; border-radius:50%;
+    border:1.5px solid var(--grid); background:var(--card);
+    color:var(--ink-soft); font-size:1.05rem; cursor:pointer; flex-shrink:0; margin-top:4px;
+  }
+  .settings-btn:hover{ border-color:var(--red); color:var(--red); }
+
+  .card{ background:var(--card); border:1px solid var(--grid); border-radius:var(--radius); padding:26px 22px 24px; }
+
+  .view{ display:none; }
+  .view.active{ display:block; }
+
+  /* ---------- Weekday tabs (shared style) ---------- */
+  .weekday-tabs{ display:flex; gap:4px; margin-bottom:18px; }
+  .weekday-tab{
+    flex:1; padding:9px 2px; text-align:center;
+    border:1.5px solid var(--grid); background:var(--paper);
+    border-radius:6px; font-family:'JetBrains Mono',monospace; font-weight:700;
+    font-size:0.78rem; color:var(--ink-soft); cursor:pointer;
+  }
+  .weekday-tab:hover{ border-color:var(--red); color:var(--red); }
+  .weekday-tab.selected{ border-color:var(--red); color:var(--red); background:var(--red-dim); }
+  .weekday-tab.is-today::after{ content:"•"; display:block; color:var(--red); margin-top:1px; }
+
+  /* ---------- MAIN VIEW ---------- */
+  .status-wrap{ display:flex; flex-direction:column; align-items:center; padding:6px 0 22px; }
+  .ring-mark{ position:relative; width:200px; height:200px; }
+  .ring-mark svg{ position:absolute; top:0; left:0; width:100%; height:100%; transform:rotate(-90deg); }
+  .ring-bg{ fill:none; stroke:var(--grid); stroke-width:6; }
+  .ring-fg{ fill:none; stroke:var(--red); stroke-width:6; stroke-linecap:round; transition:stroke-dashoffset 0.9s linear; }
+  .ring-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 20px; text-align:center; }
+  .status-label{ font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--red); margin-bottom:6px; }
+  .status-time{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:1.9rem; color:var(--ink); }
+  .status-subject{ margin-top:4px; font-size:0.85rem; color:var(--ink-soft); font-weight:600; }
+  .status-sub{ margin-top:14px; color:var(--ink-soft); font-size:0.9rem; text-align:center; }
+
+  .day-list{ margin-top:6px; }
+  .day-list-title{ font-size:0.78rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:10px; }
+  .day-row{ display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px dashed var(--grid); }
+  .day-row:last-child{ border-bottom:none; }
+  .day-dot{ width:9px; height:9px; border-radius:50%; border:1.5px solid var(--muted); background:transparent; flex-shrink:0; }
+  .day-row.current .day-dot{ background:var(--red); border-color:var(--red); }
+  .day-row.past .day-dot{ background:var(--grid); border-color:var(--grid); }
+  .day-num{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:0.9rem; color:var(--ink); width:20px; flex-shrink:0; }
+  .day-row.past .day-num{ color:var(--muted); }
+  .day-info{ display:flex; flex-direction:column; min-width:0; }
+  .day-time{ font-family:'JetBrains Mono',monospace; font-size:0.82rem; color:var(--ink-soft); }
+  .day-subject{ font-size:0.9rem; color:var(--ink); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .day-row.current .day-time, .day-row.current .day-subject{ color:var(--ink); }
+  .day-row.past .day-time, .day-row.past .day-subject{ color:var(--muted); text-decoration:line-through; text-decoration-color:var(--grid); }
+  .day-tag{ margin-left:auto; font-size:0.72rem; font-weight:700; text-transform:uppercase; color:var(--red); letter-spacing:.03em; flex-shrink:0; }
+  .day-off-note{ color:var(--muted); font-size:0.9rem; padding:14px 2px; font-style:italic; }
+
+  /* ---------- SETUP / EDIT VIEW ---------- */
+  .panel-title{ font-family:'PT Serif',serif; font-size:1.3rem; font-weight:700; margin:0 0 4px; }
+  .panel-sub{ color:var(--ink-soft); font-size:0.88rem; line-height:1.4; margin:0 0 18px; }
+
+  .field-label{ font-size:0.78rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:8px; display:block; }
+
+  .dayoff-toggle{ display:flex; align-items:center; gap:10px; margin-bottom:18px; padding:10px 12px; border:1.5px dashed var(--grid); border-radius:6px; }
+  .dayoff-toggle input{ width:17px; height:17px; accent-color:var(--red); }
+  .dayoff-toggle label{ font-size:0.88rem; color:var(--ink-soft); cursor:pointer; }
+
+  .copy-row{ display:flex; gap:8px; margin-bottom:18px; align-items:center; }
+  .copy-row select{
+    flex:1; padding:8px 6px; border:1.5px solid var(--grid); border-radius:5px;
+    background:var(--paper); color:var(--ink); font-size:0.85rem; font-family:'Inter',sans-serif;
+  }
+  .copy-row button{
+    padding:8px 12px; border:1.5px solid var(--grid); border-radius:5px; background:var(--paper);
+    color:var(--ink-soft); font-size:0.82rem; font-weight:600; cursor:pointer; white-space:nowrap;
+  }
+  .copy-row button:hover{ border-color:var(--red); color:var(--red); }
+
+  .stepper{ display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+  .stepper button{
+    width:34px; height:34px; border-radius:50%; border:1.5px solid var(--grid); background:var(--paper);
+    color:var(--ink); font-size:1.1rem; font-weight:700; cursor:pointer;
+  }
+  .stepper button:hover{ border-color:var(--red); color:var(--red); }
+  .stepper .value{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:1.15rem; min-width:24px; text-align:center; }
+
+  .edit-rows{ margin-bottom:20px; }
+  .edit-row{ padding:12px 0; border-bottom:1px dashed var(--grid); }
+  .edit-row:first-child{ padding-top:0; }
+  .edit-row-top{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .edit-row .row-label{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:0.88rem; color:var(--ink-soft); width:20px; flex-shrink:0; }
+  .edit-row input[type="text"]{
+    flex:1; font-family:'Inter',sans-serif; font-size:0.9rem; padding:8px 10px;
+    border:1.5px solid var(--grid); border-radius:5px; background:var(--paper); color:var(--ink); min-width:0;
+  }
+  .edit-row-time{ display:flex; align-items:center; gap:8px; padding-left:30px; }
+  .edit-row input[type="time"]{
+    flex:1; font-family:'JetBrains Mono',monospace; font-size:0.88rem; padding:7px 6px;
+    border:1.5px solid var(--grid); border-radius:5px; background:var(--paper); color:var(--ink); min-width:0;
+  }
+  .edit-row input:focus{ outline:none; border-color:var(--red); }
+  .edit-row .dash{ color:var(--muted); font-size:0.85rem; flex-shrink:0; }
+
+  .save-btn{
+    width:100%; padding:13px; background:var(--ink); color:var(--paper); border:none;
+    border-radius:var(--radius); font-weight:600; font-size:0.95rem; cursor:pointer; transition:background .15s ease;
+  }
+  .save-btn:hover{ background:var(--red); }
+
+  .link-btn{ display:block; width:100%; text-align:center; background:none; border:none; color:var(--muted);
+    font-size:0.82rem; margin-top:14px; cursor:pointer; text-decoration:underline; }
+  .link-btn:hover{ color:var(--red); }
+
+  .loading-note{ text-align:center; color:var(--muted); font-size:0.88rem; padding:40px 10px; }
+  footer{ text-align:center; color:var(--muted); font-size:0.76rem; margin-top:20px; padding:0 12px; line-height:1.5; }
+
+  @media (prefers-reduced-motion: reduce){ .ring-fg{ transition:none; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="app-header">
+    <div>
+      <h1>Перемена</h1>
+      <p class="tagline">расписание звонков на неделю</p>
+    </div>
+    <button class="settings-btn" id="open-settings" title="Настроить расписание">⚙</button>
+  </div>
+
+  <div class="card">
+
+    <div class="view active" id="view-loading">
+      <p class="loading-note">Загружаем расписание…</p>
+    </div>
+
+    <!-- MAIN VIEW -->
+    <div class="view" id="view-main">
+      <div class="status-wrap">
+        <div class="ring-mark">
+          <svg viewBox="0 0 200 200">
+            <circle class="ring-bg" cx="100" cy="100" r="90"/>
+            <circle class="ring-fg" id="ring-fg" cx="100" cy="100" r="90" stroke-dasharray="565.5" stroke-dashoffset="565.5"/>
+          </svg>
+          <div class="ring-center">
+            <span class="status-label" id="status-label">—</span>
+            <span class="status-time" id="status-time">—:—</span>
+            <span class="status-subject" id="status-subject"></span>
+          </div>
+        </div>
+        <p class="status-sub" id="status-sub"></p>
+      </div>
+
+      <div class="weekday-tabs" id="preview-tabs"></div>
+
+      <div class="day-list">
+        <span class="day-list-title" id="day-list-title">Расписание</span>
+        <div id="day-list-rows"></div>
+      </div>
+    </div>
+
+    <!-- SETUP / EDIT VIEW -->
+    <div class="view" id="view-edit">
+      <h2 class="panel-title">Настроить звонки</h2>
+      <p class="panel-sub">Заполни расписание на каждый день недели: время и предмет. Можно скопировать день целиком, если расписание похоже.</p>
+
+      <div class="weekday-tabs" id="edit-tabs"></div>
+
+      <div class="dayoff-toggle">
+        <input type="checkbox" id="dayoff-checkbox">
+        <label for="dayoff-checkbox">В этот день уроков нет (выходной)</label>
+      </div>
+
+      <div class="copy-row">
+        <select id="copy-source"></select>
+        <button id="copy-btn">Скопировать сюда</button>
+      </div>
+
+      <div id="edit-body">
+        <span class="field-label">Уроков в этот день</span>
+        <div class="stepper">
+          <button id="count-minus">−</button>
+          <span class="value" id="count-value">6</span>
+          <button id="count-plus">+</button>
+        </div>
+
+        <span class="field-label">Расписание</span>
+        <div class="edit-rows" id="edit-rows"></div>
+      </div>
+
+      <button class="save-btn" id="save-btn">Сохранить всё расписание</button>
+      <button class="link-btn" id="cancel-btn">Отмена</button>
+    </div>
+
+  </div>
+
+  <footer>Расписание хранится только на этом устройстве.</footer>
+</div>
+
+<datalist id="subjects-list"></datalist>
+
+<script>
+  const DAY_NAMES = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  const DAY_NAMES_FULL = ['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье'];
+  const DAY_IN_PHRASE = ['в понедельник','во вторник','в среду','в четверг','в пятницу','в субботу','в воскресенье'];
+  const DEFAULT_TIMES = [
+    ['08:30','09:15'], ['09:25','10:10'], ['10:25','11:10'],
+    ['11:20','12:05'], ['12:25','13:10'], ['13:20','14:05'],
+    ['14:15','15:00'], ['15:10','15:55']
+  ];
+
+  function todayIndexRu(){
+    const jsDay = new Date().getDay(); // 0=Sun..6=Sat
+    return (jsDay + 6) % 7; // 0=Mon..6=Sun
+  }
+
+  let schedule = {};      // saved schedule {0..6: [{start,end,subject}] or []}
+  let draft = {};         // working copy while editing
+  let editDayIdx = 0;
+  let previewDayIdx = todayIndexRu();
+
+  const views = {
+    loading: document.getElementById('view-loading'),
+    main: document.getElementById('view-main'),
+    edit: document.getElementById('view-edit'),
+  };
+  function showView(name){
+    Object.values(views).forEach(v=>v.classList.remove('active'));
+    views[name].classList.add('active');
+  }
+
+  function toMinutes(hhmm){ const [h,m]=hhmm.split(':').map(Number); return h*60+m; }
+  function fmtCountdown(totalSeconds){
+    totalSeconds = Math.max(0,totalSeconds);
+    const m = Math.floor(totalSeconds/60), s = totalSeconds%60;
+    return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  }
+  function emptyWeek(){
+    const w = {};
+    for(let i=0;i<7;i++) w[i] = [];
+    return w;
+  }
+  function hasAnyLessons(sch){
+    return Object.values(sch).some(day => day && day.length>0);
+  }
+
+  // ---------- Storage ----------
+  async function loadSchedule(){
+    try{
+      const res = await window.storage.get('week_schedule', false);
+      schedule = (res && res.value) ? JSON.parse(res.value) : emptyWeek();
+    } catch(e){
+      schedule = emptyWeek();
+    }
+    if(!hasAnyLessons(schedule)){
+      openEdit();
+    } else {
+      showView('main');
+      renderPreviewTabs();
+      tick();
+    }
+  }
+
+  async function saveSchedule(newWeek){
+    schedule = newWeek;
+    try{
+      await window.storage.set('week_schedule', JSON.stringify(schedule), false);
+    } catch(e){ console.error('Storage error', e); }
+    previewDayIdx = todayIndexRu();
+    showView('main');
+    renderPreviewTabs();
+    tick();
+  }
+
+  // ---------- Subjects datalist ----------
+  function refreshSubjectsList(){
+    const set = new Set();
+    Object.values(draft).forEach(day => day.forEach(p => { if(p.subject) set.add(p.subject); }));
+    const dl = document.getElementById('subjects-list');
+    dl.innerHTML = '';
+    set.forEach(s=>{
+      const opt = document.createElement('option');
+      opt.value = s;
+      dl.appendChild(opt);
+    });
+  }
+
+  // ---------- Edit view ----------
+  function openEdit(){
+    draft = JSON.parse(JSON.stringify(schedule && Object.keys(schedule).length===7 ? schedule : emptyWeek()));
+    editDayIdx = todayIndexRu();
+    renderEditTabs();
+    renderCopySelect();
+    loadDayIntoEditor(editDayIdx);
+    showView('edit');
+  }
+
+  function renderEditTabs(){
+    const wrap = document.getElementById('edit-tabs');
+    wrap.innerHTML = '';
+    DAY_NAMES.forEach((name,i)=>{
+      const btn = document.createElement('button');
+      btn.className = 'weekday-tab' + (i===editDayIdx?' selected':'') + (i===todayIndexRu()?' is-today':'');
+      btn.textContent = name;
+      btn.addEventListener('click', ()=>{
+        editDayIdx = i;
+        renderEditTabs();
+        renderCopySelect();
+        loadDayIntoEditor(i);
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  function renderCopySelect(){
+    const sel = document.getElementById('copy-source');
+    sel.innerHTML = '';
+    DAY_NAMES.forEach((name,i)=>{
+      if(i===editDayIdx) return;
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = 'Как ' + DAY_IN_PHRASE[i];
+      sel.appendChild(opt);
+    });
+  }
+
+  document.getElementById('copy-btn').addEventListener('click', ()=>{
+    const src = Number(document.getElementById('copy-source').value);
+    draft[editDayIdx] = JSON.parse(JSON.stringify(draft[src] || []));
+    loadDayIntoEditor(editDayIdx, true);
+  });
+
+  let editCount = 6;
+
+  function loadDayIntoEditor(dayIdx, skipDayOffSync){
+    const dayData = draft[dayIdx] || [];
+    const checkbox = document.getElementById('dayoff-checkbox');
+    // Если день ещё не заполнялся — выходной предлагаем только для Сб (5) и Вс (6)
+    const isDayOff = dayData.length === 0 ? (dayIdx === 5 || dayIdx === 6) : false;
+    checkbox.checked = isDayOff;
+    document.getElementById('edit-body').style.display = isDayOff ? 'none' : 'block';
+    editCount = dayData.length > 0 ? dayData.length : 6;
+    document.getElementById('count-value').textContent = editCount;
+    renderEditRows(dayIdx);
+  }
+
+  document.getElementById('dayoff-checkbox').addEventListener('change', (e)=>{
+    if(e.target.checked){
+      draft[editDayIdx] = [];
+      document.getElementById('edit-body').style.display = 'none';
+    } else {
+      document.getElementById('edit-body').style.display = 'block';
+      editCount = 6;
+      document.getElementById('count-value').textContent = editCount;
+      renderEditRows(editDayIdx);
+    }
+  });
+
+  function renderEditRows(dayIdx){
+    const wrap = document.getElementById('edit-rows');
+    wrap.innerHTML = '';
+    const existingArr = draft[dayIdx] || [];
+    for(let i=0;i<editCount;i++){
+      const existing = existingArr[i];
+      const fallback = DEFAULT_TIMES[i] || ['08:00','08:45'];
+      const start = existing ? existing.start : fallback[0];
+      const end = existing ? existing.end : fallback[1];
+      const subject = existing ? (existing.subject || '') : '';
+
+      const row = document.createElement('div');
+      row.className = 'edit-row';
+      row.innerHTML = `
+        <div class="edit-row-top">
+          <span class="row-label">${i+1}.</span>
+          <input type="text" placeholder="Предмет" value="${subject.replace(/"/g,'&quot;')}" list="subjects-list" data-idx="${i}" data-role="subject">
+        </div>
+        <div class="edit-row-time">
+          <input type="time" value="${start}" data-idx="${i}" data-role="start">
+          <span class="dash">—</span>
+          <input type="time" value="${end}" data-idx="${i}" data-role="end">
+        </div>
+      `;
+      wrap.appendChild(row);
+    }
+    refreshSubjectsList();
+  }
+
+  document.getElementById('count-minus').addEventListener('click', ()=>{
+    editCount = Math.max(1, editCount-1);
+    document.getElementById('count-value').textContent = editCount;
+    syncEditorToDraft();
+    renderEditRows(editDayIdx);
+  });
+  document.getElementById('count-plus').addEventListener('click', ()=>{
+    editCount = Math.min(12, editCount+1);
+    document.getElementById('count-value').textContent = editCount;
+    syncEditorToDraft();
+    renderEditRows(editDayIdx);
+  });
+
+  function syncEditorToDraft(){
+    const isDayOff = document.getElementById('dayoff-checkbox').checked;
+    if(isDayOff){ draft[editDayIdx] = []; return; }
+    const rows = document.querySelectorAll('#edit-rows .edit-row');
+    const arr = [];
+    rows.forEach(row=>{
+      const subject = row.querySelector('[data-role="subject"]').value.trim();
+      const start = row.querySelector('[data-role="start"]').value;
+      const end = row.querySelector('[data-role="end"]').value;
+      arr.push({start, end, subject});
+    });
+    draft[editDayIdx] = arr;
+  }
+
+  document.getElementById('save-btn').addEventListener('click', ()=>{
+    syncEditorToDraft();
+    for(let i=0;i<7;i++){
+      const day = draft[i] || [];
+      for(const p of day){
+        if(!p.start || !p.end || toMinutes(p.end) <= toMinutes(p.start)){
+          alert('Проверь время в дне «'+DAY_NAMES_FULL[i]+'» — конец урока должен быть позже начала.');
+          return;
+        }
+      }
+      day.sort((a,b)=> toMinutes(a.start)-toMinutes(b.start));
+    }
+    saveSchedule(draft);
+  });
+
+  document.getElementById('cancel-btn').addEventListener('click', ()=>{
+    if(!hasAnyLessons(schedule)){
+      alert('Сначала сохрани расписание хотя бы один раз.');
+      return;
+    }
+    showView('main');
+    renderPreviewTabs();
+    tick();
+  });
+
+  document.getElementById('open-settings').addEventListener('click', openEdit);
+
+  // live-sync inputs into draft as user types (so switching tabs/copy doesn't lose data)
+  document.getElementById('edit-rows').addEventListener('input', ()=> syncEditorToDraft());
+
+  // ---------- Main view ----------
+  const RING_CIRCUMFERENCE = 2 * Math.PI * 90;
+
+  function renderPreviewTabs(){
+    const wrap = document.getElementById('preview-tabs');
+    wrap.innerHTML = '';
+    DAY_NAMES.forEach((name,i)=>{
+      const btn = document.createElement('button');
+      btn.className = 'weekday-tab' + (i===previewDayIdx?' selected':'') + (i===todayIndexRu()?' is-today':'');
+      btn.textContent = name;
+      btn.addEventListener('click', ()=>{
+        previewDayIdx = i;
+        renderPreviewTabs();
+        renderDayListForPreview();
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  function renderDayListForPreview(){
+    const titleEl = document.getElementById('day-list-title');
+    const isToday = previewDayIdx === todayIndexRu();
+    titleEl.textContent = isToday ? 'Расписание на сегодня' : 'Расписание: ' + DAY_NAMES_FULL[previewDayIdx];
+
+    const wrap = document.getElementById('day-list-rows');
+    wrap.innerHTML = '';
+    const dayPeriods = schedule[previewDayIdx] || [];
+
+    if(dayPeriods.length === 0){
+      wrap.innerHTML = '<p class="day-off-note">В этот день уроков нет.</p>';
+      return;
+    }
+
+    const now = new Date();
+    const nowSec = (now.getHours()*60+now.getMinutes())*60 + now.getSeconds();
+    let currentIdx = -1;
+    if(isToday){
+      dayPeriods.forEach((p,i)=>{
+        const s = toMinutes(p.start)*60, e = toMinutes(p.end)*60;
+        if(nowSec >= s && nowSec < e) currentIdx = i;
+      });
+    }
+
+    dayPeriods.forEach((p,i)=>{
+      const row = document.createElement('div');
+      let cls = 'day-row';
+      if(isToday && i === currentIdx) cls += ' current';
+      else if(isToday && toMinutes(p.end)*60 <= nowSec) cls += ' past';
+      row.className = cls;
+      row.innerHTML = `
+        <span class="day-dot"></span>
+        <span class="day-num">${i+1}.</span>
+        <span class="day-info">
+          <span class="day-subject">${p.subject ? p.subject : 'Урок ' + (i+1)}</span>
+          <span class="day-time">${p.start}–${p.end}</span>
+        </span>
+        ${ (isToday && i===currentIdx) ? '<span class="day-tag">Сейчас</span>' : '' }
+      `;
+      wrap.appendChild(row);
+    });
+  }
+
+  function tick(){
+    const todayIdx = todayIndexRu();
+    const todayPeriods = schedule[todayIdx] || [];
+
+    const labelEl = document.getElementById('status-label');
+    const timeEl = document.getElementById('status-time');
+    const subjectEl = document.getElementById('status-subject');
+    const subEl = document.getElementById('status-sub');
+    const ring = document.getElementById('ring-fg');
+
+    if(todayPeriods.length === 0){
+      labelEl.textContent = 'Сегодня';
+      timeEl.textContent = '🎉';
+      subjectEl.textContent = '';
+      subEl.textContent = 'Выходной — уроков нет';
+      ring.style.strokeDashoffset = RING_CIRCUMFERENCE;
+      if(previewDayIdx === todayIdx) renderDayListForPreview();
+      return;
+    }
+
+    const now = new Date();
+    const nowSec = (now.getHours()*60+now.getMinutes())*60 + now.getSeconds();
+
+    let status, index = -1, remainingSec = 0, fraction = 0;
+
+    for(let i=0;i<todayPeriods.length;i++){
+      const startSec = toMinutes(todayPeriods[i].start)*60;
+      const endSec = toMinutes(todayPeriods[i].end)*60;
+      if(nowSec >= startSec && nowSec < endSec){
+        status = 'lesson'; index = i;
+        remainingSec = endSec - nowSec;
+        fraction = (nowSec - startSec) / (endSec - startSec);
+        break;
+      }
+    }
+
+    if(status === undefined){
+      const firstStartSec = toMinutes(todayPeriods[0].start)*60;
+      const lastEndSec = toMinutes(todayPeriods[todayPeriods.length-1].end)*60;
+      if(nowSec < firstStartSec){
+        status = 'before'; index = 0;
+        remainingSec = firstStartSec - nowSec;
+        fraction = 0;
+      } else if(nowSec >= lastEndSec){
+        status = 'done';
+        remainingSec = 0; fraction = 1;
+      } else {
+        for(let i=0;i<todayPeriods.length-1;i++){
+          const endSec = toMinutes(todayPeriods[i].end)*60;
+          const nextStartSec = toMinutes(todayPeriods[i+1].start)*60;
+          if(nowSec >= endSec && nowSec < nextStartSec){
+            status = 'break'; index = i+1;
+            remainingSec = nextStartSec - nowSec;
+            fraction = 1 - (nextStartSec - nowSec) / (nextStartSec - endSec);
+            break;
+          }
+        }
+      }
+    }
+
+    if(status === 'lesson'){
+      labelEl.textContent = 'Урок ' + (index+1);
+      timeEl.textContent = fmtCountdown(remainingSec);
+      subjectEl.textContent = todayPeriods[index].subject || '';
+      subEl.textContent = 'до конца — ' + todayPeriods[index].end;
+      ring.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - fraction);
+    } else if(status === 'break'){
+      labelEl.textContent = 'Перемена';
+      timeEl.textContent = fmtCountdown(remainingSec);
+      subjectEl.textContent = 'далее: ' + (todayPeriods[index].subject || 'урок ' + (index+1));
+      subEl.textContent = 'начнётся в ' + todayPeriods[index].start;
+      ring.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - fraction);
+    } else if(status === 'before'){
+      labelEl.textContent = 'До начала';
+      timeEl.textContent = fmtCountdown(remainingSec);
+      subjectEl.textContent = todayPeriods[0].subject || '';
+      subEl.textContent = 'первый урок в ' + todayPeriods[0].start;
+      ring.style.strokeDashoffset = RING_CIRCUMFERENCE;
+    } else {
+      labelEl.textContent = 'Уроки закончились';
+      timeEl.textContent = '🎒';
+      subjectEl.textContent = '';
+      subEl.textContent = 'Увидимся завтра';
+      ring.style.strokeDashoffset = 0;
+    }
+
+    if(previewDayIdx === todayIdx) renderDayListForPreview();
+  }
+
+  let tickInterval = null;
+  function startClock(){
+    if(tickInterval) clearInterval(tickInterval);
+    tickInterval = setInterval(()=>{
+      if(views.main.classList.contains('active')) tick();
+    }, 1000);
+  }
+
+  loadSchedule().then(startClock);
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    });
+  }
+</script>
+
+</body>
+</html>
