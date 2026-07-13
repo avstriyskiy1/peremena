@@ -254,6 +254,23 @@
 <datalist id="subjects-list"></datalist>
 
 <script>
+  // Локальное хранилище на устройстве (работает на реальном сайте/APK;
+  // в превью Claude вместо этого используется песочница window.storage).
+  const storage = {
+    async get(key){
+      try{
+        const v = localStorage.getItem(key);
+        return v === null ? null : { key, value: v };
+      } catch(e){ return null; }
+    },
+    async set(key, value){
+      try{
+        localStorage.setItem(key, value);
+        return { key, value };
+      } catch(e){ throw e; }
+    }
+  };
+
   const DAY_NAMES = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
   const DAY_NAMES_FULL = ['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье'];
   const DAY_IN_PHRASE = ['в понедельник','во вторник','в среду','в четверг','в пятницу','в субботу','в воскресенье'];
@@ -301,7 +318,7 @@
   // ---------- Storage ----------
   async function loadSchedule(){
     try{
-      const res = await window.storage.get('week_schedule', false);
+      const res = await storage.get('week_schedule');
       schedule = (res && res.value) ? JSON.parse(res.value) : emptyWeek();
     } catch(e){
       schedule = emptyWeek();
@@ -318,7 +335,7 @@
   async function saveSchedule(newWeek){
     schedule = newWeek;
     try{
-      await window.storage.set('week_schedule', JSON.stringify(schedule), false);
+      await storage.set('week_schedule', JSON.stringify(schedule));
     } catch(e){ console.error('Storage error', e); }
     previewDayIdx = todayIndexRu();
     showView('main');
